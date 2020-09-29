@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1 - Language Development in ASD - Power and simulations"
-author: "[YOUR NAME]"
-date: "[DATE]"
+author: "Andreas Jeppesen, Lina Pedersen, Sophie Korch, Thea Pedersen"
+date: "24/09 - 2020"
 output: html_document
 ---
 
@@ -39,6 +39,46 @@ You will be using:
 
 ```{r}
 
+#install.packages("simr")
+library(tidyverse)
+library (simr)
+
+#Loading the data
+testdf <- read_csv("testdf.csv")
+
+traindf <- read_csv("traindf.csv")
+
+#Cleaning the dataframe
+traindf <- select(traindf, SUBJ, VISIT, Diagnosis, CHI_MLU, VerbalIQ1)%>%
+  na.omit
+
+m1 <- lme4::lmer(CHI_MLU ~ VISIT * Diagnosis + I(VISIT^2) + (1 + VISIT|SUBJ) + VerbalIQ1, data = traindf, REML = FALSE)
+
+
+```
+
+
+```{r}
+
+#Testing power of the effect of the interaction between visit and diagnosis
+pinteraction <- powerSim(m1, simr::fixed("VISIT:Diagnosis"), nsim=50)
+pinteraction
+
+#Testing power of the fixed effect "VerbalIQ1"
+pverbalIQ <- powerSim(m1, simr::fixed("VerbalIQ1"), nsim=50)
+pverbalIQ
+
+#Illustrating the power with a powercurve
+pc1 <- powerCurve(m1, simr::fixed("VISIT:Diagnosis"), along = "SUBJ", nsim=50)
+
+print(pc1)
+plot(pc1)
+
+pc2 <- powerCurve(m1, simr::fixed("VerbalIQ1"), along ="SUBJ", nsim=50)
+
+print(pc2)
+plot(pc2)
+
 ```
 
 
@@ -53,6 +93,23 @@ How would you perform a more conservative power analysis?
 
 ```{r}
 
+#We define the minimum effect size that we are interested in and would look for in a new study as 0.125. A difference in slope of 0.125 between the groups will yield a total difference of ~ 0.75 word on average pr utterance by the last Visit.
+fixef(m1) ["VISIT:DiagnosisTD"] <- 0.125
+
+pc3 <- powerCurve(m1, simr::fixed("VISIT:Diagnosis"), along = "SUBJ", nsim = 50)
+
+print(pc3)
+plot(pc3)
+#An ideal number of participants would be 50 
+
+#We define the minimum effect size as 0.04, as this would produce a difference of ~ 1 word on average or utterance. 
+fixef(m1) ["VerbalIQ1"] <- 0.04
+
+pc4 <- powerCurve(m1, simr::fixed("VerbalIQ1"), along = "SUBJ", nsim = 50)
+
+print(pc4)
+plot(pc4)
+#For this effect size an ideal number of participants would be 24. 
 ```
 
 
@@ -61,5 +118,35 @@ How would you perform a more conservative power analysis?
 Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why
 
 ```{r}
+#Rerunning the model in order to resume to the "old" effectsize
+m1 <- lme4::lmer(CHI_MLU ~ VISIT * Diagnosis + I(VISIT^2) + (1 + VISIT|SUBJ) + VerbalIQ1, data = traindf, REML = FALSE)
+
+#Limiting the model to include only 30 subjects 
+m1_30 <- extend(m1, along="SUBJ", n=30)
+
+
+#Testing power of the effect of the interaction between visit and diagnosis with only 30 participants
+pinteraction30 <- powerSim(m1_30, simr::fixed("VISIT:Diagnosis"), nsim=50)
+pinteraction30
+
+#Testing power of the effect of the interaction between visit and diagnosis with only 30 participants
+pverbalIQ30 <- powerSim(m1_30, simr::fixed("VerbalIQ1"), nsim=50)
+pverbalIQ30
+
+
+
+
+
+#Running the same analysis as above but with the effectsize we defined in excersize 2.
+fixef(m1_30) ["VISIT:DiagnosisTD"] <- 0.125
+fixef(m1_30) ["VerbalIQ1"] <- 0.04
+
+pinteraction30new <- powerSim(m1_30, simr::fixed("VISIT:Diagnosis"), nsim=50)
+pinteraction30new
+
+pverbalIQ30new <- powerSim(m1_30, simr::fixed("VerbalIQ1"), nsim=50)
+pverbalIQ30new
+
+
 
 ```
